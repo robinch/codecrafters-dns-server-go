@@ -43,10 +43,13 @@ func newDNS() *DNS {
 	return &DNS{Header: h, Questions: qs}
 }
 
-func parseDNS(data []byte) *DNS {
-	headerPart := data[0:12]
+func ParseDNS(data []byte) *DNS {
+	header := ParseDNSHeader(data[0:12])
+	questions, _ := ParseQuestions(data[12:], header.QDCount)
+
 	return &DNS{
-		Header: parseDNSHeader(headerPart),
+		Header:    header,
+		Questions: questions,
 	}
 }
 
@@ -137,7 +140,7 @@ func (dh *DNSHeader) Serialize() []byte {
 	return header
 }
 
-func parseDNSHeader(headerData []byte) *DNSHeader {
+func ParseDNSHeader(headerData []byte) *DNSHeader {
 	if len(headerData) != 12 {
 		error := fmt.Sprintf("headerData len is %d, should be %d", len(headerData), 12)
 		panic(error)
@@ -207,6 +210,10 @@ func newQuestion(domain string, qType, qClass uint16) *Question {
 	return &Question{Name: ToLabelSequence(domain), Type: qType, Class: qClass}
 }
 
+func (q *Question) GetName() string {
+	return FromSequence(q.Name)
+}
+
 func (q *Question) Serialize() []byte {
 	serialized := make([]byte, len(q.Name))
 	copy(serialized, q.Name)
@@ -215,6 +222,38 @@ func (q *Question) Serialize() []byte {
 	serialized = binary.BigEndian.AppendUint16(serialized, q.Class)
 
 	return serialized
+}
+
+func ParseQuestions(data []byte, qdCount uint16) ([]*Question, int) {
+	qs := make([]*Question, qdCount)
+	token := 0
+	for i := 0; i < int(qdCount); i++ {
+		name := []byte{}
+		for j, b := range data {
+			if b == 0 {
+				name = append(name, b)
+				token += j
+				break
+			}
+
+			name = append(name, b)
+		}
+
+		types := binary.BigEndian.Uint16(data[token : token+16])
+		token += 16
+		class := binary.BigEndian.Uint16(data[token : token+16])
+		token += 16
+
+		q := &Question{
+			Name:  name,
+			Type:  types,
+			Class: class,
+		}
+
+		qs = append(qs, q)
+	}
+
+	return qs, token
 }
 
 type ResourceRecord struct {
@@ -279,6 +318,19 @@ func ToIpSequence(ip string) []byte {
 	return bs
 }
 
+func FromSequence(seq []byte) string {
+	bs := []byte{}
+	for _, b := range seq {
+		if b == 0 {
+			return string(bs)
+		}
+
+		bs = append(bs, b)
+	}
+
+	panic("No null byte found")
+}
+
 func main() {
 	fmt.Println("Logs from your program will appear here!")
 
@@ -307,13 +359,13 @@ func main() {
 		receivedData := string(buf[:size])
 		fmt.Printf("Received %d bytes from %s: %s\n", size, source, receivedData)
 
-		reqDns := parseDNS([]byte(receivedData))
+		reqDns := ParseDNS([]byte(receivedData))
 		id := reqDns.Header.Id
 		opCode := reqDns.Header.OPCode
 		rd := reqDns.Header.RD
 
 		var rCode uint8
-		if opCode == 0  {
+		if opCode == 0 {
 			rCode = 0
 		} else {
 			rCode = 4
@@ -325,8 +377,11 @@ func main() {
 		dns.Header.RD = rd
 		dns.Header.RCode = rCode
 		dns.AsQuery()
-		dns.AddQuestion("codecrafters.io", TypeA, ClassIN)
-		dns.AddResourceRecord("codecrafters.io", TypeA, ClassIN, 60, "8.8.8.8")
+		for i := 0; i < int(dns.Header.QDCount); i++ {
+			domain := dns.Questions[i].GetName()
+			dns.AddQuestion(domain, TypeA, ClassIN)
+			dns.AddResourceRecord(domain, TypeA, ClassIN, 60, "8.8.8.8")
+		}
 
 		response := dns.Serialize()
 
