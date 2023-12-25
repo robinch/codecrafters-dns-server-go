@@ -299,6 +299,11 @@ func (rr *ResourceRecord) Serialize() []byte {
 func ToLabelSequence(label string) []byte {
 	ls := []byte{}
 	parts := strings.Split(label, ".")
+
+	if parts[len(parts) - 1] == "" {
+		parts = parts[:len(parts) - 1]
+	}
+
 	for _, part := range parts {
 		bs := []byte(part)
 		ls = append(ls, byte(len(bs)))
