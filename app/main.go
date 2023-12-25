@@ -330,6 +330,8 @@ func FromSequence(seq []byte) string {
 		for ; i < length; i++ {
 			bs = append(bs, seq[i])
 		}
+
+		bs = append(bs, '.')
 	}
 
 	return string(bs)
