@@ -383,11 +383,14 @@ func main() {
 		dns.Header.RD = rd
 		dns.Header.RCode = rCode
 		dns.AsQuery()
-		for i := 0; i < int(reqDns.Header.QDCount); i++ {
-			domain := reqDns.Questions[i].GetName()
-			dns.AddQuestion(domain, TypeA, ClassIN)
-			dns.AddResourceRecord(domain, TypeA, ClassIN, 60, "8.8.8.8")
-		}
+		dns.AddQuestion("codecrafters.io", TypeA, ClassIN)
+		dns.AddResourceRecord("codecrafters.io", TypeA, ClassIN, 60, "8.8.8.8")
+
+		// for i := 0; i < int(reqDns.Header.QDCount); i++ {
+		// 	domain := reqDns.Questions[i].GetName()
+		// 	dns.AddQuestion(domain, TypeA, ClassIN)
+		// 	dns.AddResourceRecord(domain, TypeA, ClassIN, 60, "8.8.8.8")
+		// }
 
 		response := dns.Serialize()
 
