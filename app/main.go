@@ -33,6 +33,7 @@ const (
 type DNSResponse struct {
 	Header    *DNSHeader
 	Questions []*Question
+	ResourceRecords []*ResourceRecord
 }
 
 func newDNSResponse() *DNSResponse {
@@ -56,11 +57,20 @@ func (dr *DNSResponse) AddQuestion(domain string, qType, qClass uint16) {
 	dr.Header.QDCount++
 }
 
+func (dr *DNSResponse) AddResourceRecord(domain string, rType, rClass uint16, ttl uint32, ip string) {
+	rr := newResourceRecord(domain, rType, rClass, ttl, ip)
+	dr.ResourceRecords = append(dr.ResourceRecords, rr)
+	dr.Header.ANCount++
+}
+
 func (dr *DNSResponse) Serialize() []byte {
 	s := []byte{}
 	s = append(s, dr.Header.Serialize()...)
 	for _, q := range dr.Questions {
 		s = append(s, q.Serialize()...)
+	}
+	for _, rr := range dr.ResourceRecords {
+		s = append(s, rr.Serialize()...)
 	}
 
 	return s
@@ -130,18 +140,9 @@ type Question struct {
 	Class uint16
 }
 
+
 func newQuestion(domain string, qType, qClass uint16) *Question {
-	name := []byte{}
-	parts := strings.Split(domain, ".")
-	for _, part := range parts {
-		bs := []byte(part)
-		name = append(name, byte(len(bs)))
-		name = append(name, bs...)
-	}
-
-	name = append(name, 0)
-
-	return &Question{Name: name, Type: qType, Class: qClass}
+	return &Question{Name: ToLabelSequence(domain), Type: qType, Class: qClass}
 }
 
 func (q *Question) Serialize() []byte {
@@ -152,6 +153,69 @@ func (q *Question) Serialize() []byte {
 	serialized = binary.BigEndian.AppendUint16(serialized, q.Class)
 
 	return serialized
+}
+
+type ResourceRecord struct {
+	Name  []byte
+	Type  uint16
+	Class uint16
+	TTL uint32
+  Length uint16
+	Data []byte
+}
+
+func newResourceRecord(domain string, rType, rClass uint16, ttl uint32, ip string) *ResourceRecord {
+	data := ToIpSequence(ip)
+	return &ResourceRecord{
+		Name: ToLabelSequence(domain),
+		Type: rType,
+		Class: rClass,
+		TTL: ttl,
+		Length: uint16(len(data)),
+		Data: data,
+	}
+}
+
+func (rr *ResourceRecord) Serialize() []byte {
+	serialized := make([]byte, len(rr.Name))
+	copy(serialized, rr.Name)
+
+	serialized = binary.BigEndian.AppendUint16(serialized, rr.Type)
+	serialized = binary.BigEndian.AppendUint16(serialized, rr.Class)
+	serialized = binary.BigEndian.AppendUint32(serialized, rr.TTL)
+	serialized = binary.BigEndian.AppendUint16(serialized, rr.Length)
+	serialized = binary.BigEndian.AppendUint16(serialized, rr.Length)
+
+	if rr.Type == TypeA {
+		data := binary.BigEndian.Uint32(rr.Data[:4])
+		serialized = binary.BigEndian.AppendUint32(serialized, data)
+	}
+
+
+	return serialized
+}
+
+func ToLabelSequence(label string) []byte {
+	ls := []byte{}
+	parts := strings.Split(label, ".")
+	for _, part := range parts {
+		bs := []byte(part)
+		ls = append(ls, byte(len(bs)))
+		ls = append(ls, bs...)
+	}
+
+	ls = append(ls, 0)
+	return ls
+}
+
+func ToIpSequence(ip string) []byte {
+	bs := make([]byte, 4)
+	split := strings.Split(ip, ".")	
+	for i, s := range split {
+		bs[i] = byte(s[0])
+	}
+
+	return bs
 }
 
 func main() {
@@ -186,6 +250,8 @@ func main() {
 		dnsResponse.SetId(1234)
 		dnsResponse.AsQuery()
 		dnsResponse.AddQuestion("codecrafters.io", TypeA, ClassIN)
+		dnsResponse.AddResourceRecord("codecrafters.io", TypeA, ClassIN, 60, "8.8.8.8")
+
 
 		response := dnsResponse.Serialize()
 
