@@ -377,8 +377,8 @@ func main() {
 		dns.Header.RD = rd
 		dns.Header.RCode = rCode
 		dns.AsQuery()
-		for i := 0; i < int(dns.Header.QDCount); i++ {
-			domain := dns.Questions[i].GetName()
+		for i := 0; i < int(reqDns.Header.QDCount); i++ {
+			domain := reqDns.Questions[i].GetName()
 			dns.AddQuestion(domain, TypeA, ClassIN)
 			dns.AddResourceRecord(domain, TypeA, ClassIN, 60, "8.8.8.8")
 		}
