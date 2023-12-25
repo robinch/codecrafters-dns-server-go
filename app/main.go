@@ -251,7 +251,7 @@ func ParseQuestions(data []byte, qdCount uint16) ([]*Question, int) {
 			Class: class,
 		}
 
-		qs = append(qs, q)
+		qs[i] = q
 	}
 
 	return qs, token
