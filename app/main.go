@@ -386,6 +386,9 @@ func main() {
 		dns.AddQuestion("codecrafters.io", TypeA, ClassIN)
 		dns.AddResourceRecord("codecrafters.io", TypeA, ClassIN, 60, "8.8.8.8")
 
+		fmt.Printf("reqDns.Header:QDCount: %d\n", reqDns.Header.QDCount)
+		fmt.Printf("reqDns.Questions[0].GetName(): %s\n", reqDns.Questions[0].GetName())
+
 		// for i := 0; i < int(reqDns.Header.QDCount); i++ {
 		// 	domain := reqDns.Questions[i].GetName()
 		// 	dns.AddQuestion(domain, TypeA, ClassIN)
