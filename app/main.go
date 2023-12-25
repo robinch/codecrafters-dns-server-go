@@ -239,10 +239,10 @@ func ParseQuestions(data []byte, qdCount uint16) ([]*Question, int) {
 			name = append(name, b)
 		}
 
-		types := binary.BigEndian.Uint16(data[token : token+16])
-		token += 16
-		class := binary.BigEndian.Uint16(data[token : token+16])
-		token += 16
+		types := binary.BigEndian.Uint16(data[token : token+2])
+		token += 2
+		class := binary.BigEndian.Uint16(data[token : token+2])
+		token += 2
 
 		q := &Question{
 			Name:  name,
