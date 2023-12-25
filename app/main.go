@@ -321,15 +321,18 @@ func ToIpSequence(ip string) []byte {
 
 func FromSequence(seq []byte) string {
 	bs := []byte{}
-	for _, b := range seq {
-		if b == 0 {
-			return string(bs)
-		}
+	i := 0
+	for seq[i] != 0 {
+		segLength := int(seq[i])
+		i++
+		length := segLength + i
 
-		bs = append(bs, b)
+		for ; i < length; i++ {
+			bs = append(bs, seq[i])
+		}
 	}
 
-	panic("No null byte found")
+	return string(bs)
 }
 
 func main() {
