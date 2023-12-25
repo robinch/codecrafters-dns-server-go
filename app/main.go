@@ -390,7 +390,7 @@ func main() {
 
 		fmt.Printf("reqDns.Header:QDCount: %d\n", reqDns.Header.QDCount)
 		fmt.Printf("reqDns.Questions[0].GetName(): %s\n", reqDns.Questions[0].GetName())
-		fmt.Printf("reqDns.Questions[0].GetName(): is codeCrafters %t\n", reqDns.Questions[0].GetName() == "codecrafters.io")
+		fmt.Printf("reqDns.Questions[0].GetName(): is codeCrafters %t\n", reqDns.Questions[0].GetName() == "codecrafters.io.")
 
 		// for i := 0; i < int(reqDns.Header.QDCount); i++ {
 		// 	domain := reqDns.Questions[i].GetName()
