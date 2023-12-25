@@ -383,8 +383,10 @@ func main() {
 		dns.Header.RD = rd
 		dns.Header.RCode = rCode
 		dns.AsQuery()
-		dns.AddQuestion("codecrafters.io", TypeA, ClassIN)
-		dns.AddResourceRecord("codecrafters.io", TypeA, ClassIN, 60, "8.8.8.8")
+		domain := reqDns.Questions[0].GetName()
+		dns.AddQuestion(domain, TypeA, ClassIN)
+		dns.AddResourceRecord(domain, TypeA, ClassIN, 60, "8.8.8.8")
+
 
 		fmt.Printf("reqDns.Header:QDCount: %d\n", reqDns.Header.QDCount)
 		fmt.Printf("reqDns.Questions[0].GetName(): %s\n", reqDns.Questions[0].GetName())
