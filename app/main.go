@@ -30,40 +30,43 @@ const (
 	ClassHS   = uint16(4)  // Hesiod [Dyer 87
 )
 
-type DNSResponse struct {
-	Header    *DNSHeader
-	Questions []*Question
+type DNS struct {
+	Header          *DNSHeader
+	Questions       []*Question
 	ResourceRecords []*ResourceRecord
 }
 
-func newDNSResponse() *DNSResponse {
+func newDNS() *DNS {
 	h := &DNSHeader{}
 	qs := []*Question{}
 
-	return &DNSResponse{Header: h, Questions: qs}
+	return &DNS{Header: h, Questions: qs}
 }
 
-func (dr *DNSResponse) SetId(id uint16) {
-	dr.Header.Id = id
+func parseDNS(data []byte) *DNS {
+	headerPart := data[0:12]
+	return &DNS{
+		Header: parseDNSHeader(headerPart),
+	}
 }
 
-func (dr *DNSResponse) AsQuery() {
+func (dr *DNS) AsQuery() {
 	dr.Header.Qr = true
 }
 
-func (dr *DNSResponse) AddQuestion(domain string, qType, qClass uint16) {
+func (dr *DNS) AddQuestion(domain string, qType, qClass uint16) {
 	q := newQuestion(domain, qType, qClass)
 	dr.Questions = append(dr.Questions, q)
 	dr.Header.QDCount++
 }
 
-func (dr *DNSResponse) AddResourceRecord(domain string, rType, rClass uint16, ttl uint32, ip string) {
+func (dr *DNS) AddResourceRecord(domain string, rType, rClass uint16, ttl uint32, ip string) {
 	rr := newResourceRecord(domain, rType, rClass, ttl, ip)
 	dr.ResourceRecords = append(dr.ResourceRecords, rr)
 	dr.Header.ANCount++
 }
 
-func (dr *DNSResponse) Serialize() []byte {
+func (dr *DNS) Serialize() []byte {
 	s := []byte{}
 	s = append(s, dr.Header.Serialize()...)
 	for _, q := range dr.Questions {
@@ -100,25 +103,25 @@ func (dh *DNSHeader) Serialize() []byte {
 	binary.BigEndian.PutUint16(header[:2], dh.Id)
 
 	if dh.Qr {
-		header[2] |= 0x1 << 7
+		header[2] |= 0b1 << 7
 	}
 	opcode := dh.OPCode & 0b1111
 	header[2] |= opcode << 3
 
 	if dh.AA {
-		header[2] |= 0x1 << 2
+		header[2] |= 0b1 << 2
 	}
 
 	if dh.TC {
-		header[2] |= 0x1 << 1
+		header[2] |= 0b1 << 1
 	}
 
 	if dh.RD {
-		header[2] |= 0x1
+		header[2] |= 0b1
 	}
 
 	if dh.RA {
-		header[3] |= 0x1 << 7
+		header[3] |= 0b1 << 7
 	}
 
 	z := dh.Z & 0b111
@@ -134,12 +137,71 @@ func (dh *DNSHeader) Serialize() []byte {
 	return header
 }
 
+func parseDNSHeader(headerData []byte) *DNSHeader {
+	if len(headerData) != 12 {
+		error := fmt.Sprintf("headerData len is %d, should be %d", len(headerData), 12)
+		panic(error)
+
+	}
+
+	flagPart1 := uint8(headerData[2])
+
+	rd := flagPart1 & 0b1
+	flagPart1 >>= 1
+
+	tc := flagPart1 & 0b1
+	flagPart1 >>= 1
+
+	aa := flagPart1 & 0b1
+	flagPart1 >>= 1
+
+	opcode := flagPart1 & 0b1111
+	flagPart1 >>= 4
+
+	qr := flagPart1 & 0b1
+
+	flagPart2 := uint8(headerData[3])
+
+	rCode := flagPart2 & 0b1111
+	flagPart2 >>= 4
+
+	z := flagPart2 & 0b111
+	flagPart2 >>= 3
+
+	ra := flagPart2 & 0b1
+
+	return &DNSHeader{
+		Id:      binary.BigEndian.Uint16(headerData[0:2]),
+		Qr:      uint8ToBool(qr),
+		OPCode:  opcode,
+		AA:      uint8ToBool(aa),
+		TC:      uint8ToBool(tc),
+		RD:      uint8ToBool(rd),
+		RA:      uint8ToBool(ra),
+		Z:       z,
+		RCode:   rCode,
+		QDCount: binary.BigEndian.Uint16(headerData[4:6]),
+		ANCount: binary.BigEndian.Uint16(headerData[6:8]),
+		NSCount: binary.BigEndian.Uint16(headerData[8:10]),
+		ARCount: binary.BigEndian.Uint16(headerData[10:12]),
+	}
+}
+
+func uint8ToBool(num uint8) bool {
+	if num == 1 {
+		return true
+	} else if num == 0 {
+		return false
+	}
+
+	panic(fmt.Sprintf("expected num to be 1 or 0, got %d", num))
+}
+
 type Question struct {
 	Name  []byte
 	Type  uint16
 	Class uint16
 }
-
 
 func newQuestion(domain string, qType, qClass uint16) *Question {
 	return &Question{Name: ToLabelSequence(domain), Type: qType, Class: qClass}
@@ -156,23 +218,23 @@ func (q *Question) Serialize() []byte {
 }
 
 type ResourceRecord struct {
-	Name  []byte
-	Type  uint16
-	Class uint16
-	TTL uint32
-  Length uint16
-	Data []byte
+	Name   []byte
+	Type   uint16
+	Class  uint16
+	TTL    uint32
+	Length uint16
+	Data   []byte
 }
 
 func newResourceRecord(domain string, rType, rClass uint16, ttl uint32, ip string) *ResourceRecord {
 	data := ToIpSequence(ip)
 	return &ResourceRecord{
-		Name: ToLabelSequence(domain),
-		Type: rType,
-		Class: rClass,
-		TTL: ttl,
+		Name:   ToLabelSequence(domain),
+		Type:   rType,
+		Class:  rClass,
+		TTL:    ttl,
 		Length: uint16(len(data)),
-		Data: data,
+		Data:   data,
 	}
 }
 
@@ -190,7 +252,6 @@ func (rr *ResourceRecord) Serialize() []byte {
 		data := binary.BigEndian.Uint32(rr.Data[:4])
 		serialized = binary.BigEndian.AppendUint32(serialized, data)
 	}
-
 
 	return serialized
 }
@@ -210,7 +271,7 @@ func ToLabelSequence(label string) []byte {
 
 func ToIpSequence(ip string) []byte {
 	bs := make([]byte, 4)
-	split := strings.Split(ip, ".")	
+	split := strings.Split(ip, ".")
 	for i, s := range split {
 		bs[i] = byte(s[0])
 	}
@@ -246,14 +307,28 @@ func main() {
 		receivedData := string(buf[:size])
 		fmt.Printf("Received %d bytes from %s: %s\n", size, source, receivedData)
 
-		dnsResponse := newDNSResponse()
-		dnsResponse.SetId(1234)
-		dnsResponse.AsQuery()
-		dnsResponse.AddQuestion("codecrafters.io", TypeA, ClassIN)
-		dnsResponse.AddResourceRecord("codecrafters.io", TypeA, ClassIN, 60, "8.8.8.8")
+		reqDns := parseDNS([]byte(receivedData))
+		id := reqDns.Header.Id
+		opCode := reqDns.Header.OPCode
+		rd := reqDns.Header.RD
 
+		var rCode uint8
+		if opCode == 0  {
+			rCode = 0
+		} else {
+			rCode = 4
+		}
 
-		response := dnsResponse.Serialize()
+		dns := newDNS()
+		dns.Header.Id = id
+		dns.Header.OPCode = opCode
+		dns.Header.RD = rd
+		dns.Header.RCode = rCode
+		dns.AsQuery()
+		dns.AddQuestion("codecrafters.io", TypeA, ClassIN)
+		dns.AddResourceRecord("codecrafters.io", TypeA, ClassIN, 60, "8.8.8.8")
+
+		response := dns.Serialize()
 
 		_, err = udpConn.WriteToUDP(response, source)
 		if err != nil {
