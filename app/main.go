@@ -58,7 +58,7 @@ func (dr *DNSResponse) AddQuestion(domain string, qType, qClass uint16) {
 
 func (dr *DNSResponse) Serialize() []byte {
 	s := []byte{}
-  s = append(s, dr.Header.Serialize()...)
+	s = append(s, dr.Header.Serialize()...)
 	for _, q := range dr.Questions {
 		s = append(s, q.Serialize()...)
 	}
@@ -141,15 +141,15 @@ func newQuestion(domain string, qType, qClass uint16) *Question {
 
 	name = append(name, 0)
 
-	return &Question{Name: name, Type: uint16(qType), Class: qClass}
+	return &Question{Name: name, Type: qType, Class: qClass}
 }
 
 func (q *Question) Serialize() []byte {
 	serialized := make([]byte, len(q.Name))
 	copy(serialized, q.Name)
 
-	binary.BigEndian.AppendUint16(serialized, q.Type)
-	binary.BigEndian.AppendUint16(serialized, q.Class)
+	serialized = binary.BigEndian.AppendUint16(serialized, q.Type)
+	serialized = binary.BigEndian.AppendUint16(serialized, q.Class)
 
 	return serialized
 }
