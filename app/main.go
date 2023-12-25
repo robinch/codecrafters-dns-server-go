@@ -228,6 +228,7 @@ func ParseQuestions(data []byte, qdCount uint16) ([]*Question, int) {
 	qs := make([]*Question, qdCount)
 	token := 0
 	for i := 0; i < int(qdCount); i++ {
+
 		name := []byte{}
 		for j, b := range data {
 			if b == 0 {
