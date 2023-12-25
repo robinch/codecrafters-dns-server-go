@@ -57,7 +57,13 @@ func (dr *DNSResponse) AddQuestion(domain string, qType, qClass uint16) {
 }
 
 func (dr *DNSResponse) Serialize() []byte {
-	return dr.Header.Serialize()
+	s := []byte{}
+  s = append(s, dr.Header.Serialize()...)
+	for _, q := range dr.Questions {
+		s = append(s, q.Serialize()...)
+	}
+
+	return s
 }
 
 type DNSHeader struct {
