@@ -247,13 +247,13 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 				}
 			} else {
 				seqLength := uint16(b)
-				length := j + seqLength + 1
+				stopToken := j + seqLength + 1
 
 				if !isPointer {
-					nameLength += length
+					nameLength += stopToken
 				}
-				name += string(data[j:j+length + 1]) + "."
-				j += length
+				name += string(data[j:j+stopToken + 1]) + "."
+				j = stopToken + 1
 			}
 		}
 
