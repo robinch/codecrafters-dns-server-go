@@ -228,9 +228,9 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 	offsetFromHeader := uint16(12)
 	qs := make([]*Question, qdCount)
 	token := uint16(0)
-	nameLength := uint16(0)
 
 	for i := 0; i < int(qdCount); i++ {
+		nameLength := uint16(0)
 		isPointer := false
 		name := []byte{}
 		j := token
