@@ -228,28 +228,40 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 	offsetFromHeader := uint16(12)
 	qs := make([]*Question, qdCount)
 	token := uint16(0)
+	nameLength := uint16(0)
+
 	for i := 0; i < int(qdCount); i++ {
+		isPointer := false
 		name := []byte{}
 		j := token
 		for {
 			b := data[j]
 			if b == 0 {
 				name = append(name, b)
+				if !isPointer {
+					nameLength++
+				}
 				break
 			} else if b>>6 == 0b11 {
 				pointer := binary.BigEndian.Uint16(data[j:j+2])
 				offset := pointer & 0b0011111111111111
 				j = offset - offsetFromHeader
+				nameLength += 2
+				isPointer = true
 			} else {
 				seqLength := uint16(b)
 				length := j + seqLength + 1
+
+				if !isPointer {
+					nameLength += length
+				}
 				for ; j < length; j++ {
 					name = append(name, data[j])
 				}
 			}
 		}
 
-		token += uint16(len(name))
+		token += nameLength
 
 		types := binary.BigEndian.Uint16(data[token : token+2])
 		token += 2
