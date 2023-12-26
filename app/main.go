@@ -253,6 +253,7 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 					nameLength += length
 				}
 				name += string(data[j:j+length + 1]) + "."
+				j += length
 			}
 		}
 
