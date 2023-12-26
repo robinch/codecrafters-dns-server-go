@@ -45,7 +45,7 @@ func newDNS() *DNS {
 
 func ParseDNS(data []byte) *DNS {
 	header := ParseDNSHeader(data[0:12])
-	questions, _ := ParseQuestions(data[12:], header.QDCount)
+	questions := ParseQuestions(data[12:], header.QDCount)
 
 	return &DNS{
 		Header:    header,
@@ -224,21 +224,33 @@ func (q *Question) Serialize() []byte {
 	return serialized
 }
 
-func ParseQuestions(data []byte, qdCount uint16) ([]*Question, int) {
+func ParseQuestions(data []byte, qdCount uint16) []*Question {
+	offsetFromHeader := uint16(12)
 	qs := make([]*Question, qdCount)
-	token := 0
+	token := uint16(0)
 	for i := 0; i < int(qdCount); i++ {
-
 		name := []byte{}
-		for j, b := range data {
+		j := token
+		for {
+			b := data[j]
 			if b == 0 {
 				name = append(name, b)
-				token += j
 				break
+			} else if b>>6 == 0b11 {
+				pointer := binary.BigEndian.Uint16(data[j:j+2])
+				offset := pointer & 0b0011111111111111
+				j = offset - offsetFromHeader
+			} else {
+				seqLength := uint16(b)
+				j++
+				length := j + seqLength
+				for ; j < length; j++ {
+					name = append(name, b)
+				}
 			}
-
-			name = append(name, b)
 		}
+
+		token += uint16(len(name))
 
 		types := binary.BigEndian.Uint16(data[token : token+2])
 		token += 2
@@ -254,7 +266,7 @@ func ParseQuestions(data []byte, qdCount uint16) ([]*Question, int) {
 		qs[i] = q
 	}
 
-	return qs, token
+	return qs
 }
 
 type ResourceRecord struct {
@@ -300,8 +312,8 @@ func ToLabelSequence(label string) []byte {
 	ls := []byte{}
 	parts := strings.Split(label, ".")
 
-	if parts[len(parts) - 1] == "" {
-		parts = parts[:len(parts) - 1]
+	if parts[len(parts)-1] == "" {
+		parts = parts[:len(parts)-1]
 	}
 
 	for _, part := range parts {
