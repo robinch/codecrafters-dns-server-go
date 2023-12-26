@@ -244,7 +244,7 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 				seqLength := uint16(b)
 				length := j + seqLength + 1
 				for ; j < length; j++ {
-					name = append(name, b)
+					name = append(name, data[j])
 				}
 			}
 		}
