@@ -201,7 +201,7 @@ func uint8ToBool(num uint8) bool {
 }
 
 type Question struct {
-	Name string
+	Name  string
 	Type  uint16
 	Class uint16
 }
@@ -224,40 +224,10 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 	offsetFromHeader := uint16(12)
 	qs := make([]*Question, qdCount)
 	token := uint16(0)
-	name := ""
 
 	for i := 0; i < int(qdCount); i++ {
-		nameLength := uint16(0)
-		isPointer := false
-		j := token
-		for {
-			b := data[j]
-			if b == 0 {
-				if !isPointer {
-					nameLength++
-				}
-				break
-			} else if b>>6 == 0b11 {
-				pointer := binary.BigEndian.Uint16(data[j : j+2])
-				offset := pointer & 0b0011111111111111
-				j = offset - offsetFromHeader
-				if !isPointer {
-					nameLength += 2
-					isPointer = true
-				}
-			} else {
-				seqLength := uint16(b)
-				stopToken := j + seqLength + 1
-
-				if !isPointer {
-					nameLength += stopToken
-				}
-				name += string(data[j:j+stopToken + 1]) + "."
-				j = stopToken + 1
-			}
-		}
-
-		token += nameLength
+		name := ""
+		name, token = parseName(data, token, offsetFromHeader)
 
 		types := binary.BigEndian.Uint16(data[token : token+2])
 		token += 2
@@ -274,6 +244,39 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 	}
 
 	return qs
+}
+
+func parseName(data []byte, startToken, headerOffset uint16) (string, uint16) {
+	name := ""
+	token := startToken
+	i := startToken
+	followedPointer := false
+	for {
+		if data[i] == 0 {
+			if !followedPointer {
+				token++
+			}
+			break
+		} else if data[i]>>6 == 0b11 {
+			pointer := binary.BigEndian.Uint16(data[i : i+2])
+			offset := pointer & 0b0011111111111111
+			i = offset - headerOffset
+			if !followedPointer {
+				token += 2
+				followedPointer = true
+			}
+		} else {
+			seqLength := uint16(data[i])
+			name += string(data[i+1:i + 1 + seqLength ]) + "."
+
+			i += seqLength + 1
+			if !followedPointer {
+				token += seqLength + 1
+			}
+		}
+	}
+
+	return name, token
 }
 
 type ResourceRecord struct {
@@ -391,31 +394,34 @@ func main() {
 		fmt.Printf("Received %d bytes from %s: %s\n", size, source, receivedData)
 
 		reqDns := ParseDNS([]byte(receivedData))
-		id := reqDns.Header.Id
-		opCode := reqDns.Header.OPCode
-		rd := reqDns.Header.RD
 
 		var rCode uint8
-		if opCode == 0 {
+		if reqDns.Header.OPCode == 0 {
 			rCode = 0
 		} else {
 			rCode = 4
 		}
 
 		dns := newDNS()
-		dns.Header.Id = id
-		dns.Header.OPCode = opCode
-		dns.Header.RD = rd
+		dns.Header.Id = reqDns.Header.Id
+		dns.Header.OPCode = reqDns.Header.OPCode
+		dns.Header.RD = reqDns.Header.RD
 		dns.Header.RCode = rCode
 		dns.AsQuery()
 
 		for i := 0; i < int(reqDns.Header.QDCount); i++ {
 			domain := reqDns.Questions[i].Name
 			dns.AddQuestion(domain, TypeA, ClassIN)
+		}
+
+		for i := 0; i < int(reqDns.Header.QDCount); i++ {
+			domain := reqDns.Questions[i].Name
 			dns.AddResourceRecord(domain, TypeA, ClassIN, 60, "8.8.8.8")
 		}
 
 		response := dns.Serialize()
+
+		fmt.Printf("Sending %d bytes from %s: %s\n", len(response), source, response)
 
 		_, err = udpConn.WriteToUDP(response, source)
 		if err != nil {
