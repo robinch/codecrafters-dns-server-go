@@ -201,22 +201,18 @@ func uint8ToBool(num uint8) bool {
 }
 
 type Question struct {
-	Name  []byte
+	Name string
 	Type  uint16
 	Class uint16
 }
 
 func newQuestion(domain string, qType, qClass uint16) *Question {
-	return &Question{Name: ToLabelSequence(domain), Type: qType, Class: qClass}
-}
-
-func (q *Question) GetName() string {
-	return FromSequence(q.Name)
+	return &Question{Name: domain, Type: qType, Class: qClass}
 }
 
 func (q *Question) Serialize() []byte {
-	serialized := make([]byte, len(q.Name))
-	copy(serialized, q.Name)
+	serialized := []byte{}
+	serialized = append(serialized, ToLabelSequence(q.Name)...)
 
 	serialized = binary.BigEndian.AppendUint16(serialized, q.Type)
 	serialized = binary.BigEndian.AppendUint16(serialized, q.Class)
@@ -228,16 +224,15 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 	offsetFromHeader := uint16(12)
 	qs := make([]*Question, qdCount)
 	token := uint16(0)
+	name := ""
 
 	for i := 0; i < int(qdCount); i++ {
 		nameLength := uint16(0)
 		isPointer := false
-		name := []byte{}
 		j := token
 		for {
 			b := data[j]
 			if b == 0 {
-				name = append(name, b)
 				if !isPointer {
 					nameLength++
 				}
@@ -252,15 +247,12 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 				}
 			} else {
 				seqLength := uint16(b)
-				j++
-				length := j + seqLength
+				length := j + seqLength + 1
 
-				for ; j < length; j++ {
-					name = append(name, data[j])
-					if !isPointer {
-						nameLength++
-					}
+				if !isPointer {
+					nameLength += length
 				}
+				name += string(data[j:j+length + 1]) + "."
 			}
 		}
 
@@ -284,7 +276,7 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 }
 
 type ResourceRecord struct {
-	Name   []byte
+	Name   string
 	Type   uint16
 	Class  uint16
 	TTL    uint32
@@ -295,7 +287,7 @@ type ResourceRecord struct {
 func newResourceRecord(domain string, rType, rClass uint16, ttl uint32, ip string) *ResourceRecord {
 	data := ToIpSequence(ip)
 	return &ResourceRecord{
-		Name:   ToLabelSequence(domain),
+		Name:   domain,
 		Type:   rType,
 		Class:  rClass,
 		TTL:    ttl,
@@ -305,8 +297,8 @@ func newResourceRecord(domain string, rType, rClass uint16, ttl uint32, ip strin
 }
 
 func (rr *ResourceRecord) Serialize() []byte {
-	serialized := make([]byte, len(rr.Name))
-	copy(serialized, rr.Name)
+	serialized := []byte{}
+	serialized = append(serialized, ToLabelSequence(rr.Name)...)
 
 	serialized = binary.BigEndian.AppendUint16(serialized, rr.Type)
 	serialized = binary.BigEndian.AppendUint16(serialized, rr.Class)
@@ -417,7 +409,7 @@ func main() {
 		dns.AsQuery()
 
 		for i := 0; i < int(reqDns.Header.QDCount); i++ {
-			domain := reqDns.Questions[i].GetName()
+			domain := reqDns.Questions[i].Name
 			dns.AddQuestion(domain, TypeA, ClassIN)
 			dns.AddResourceRecord(domain, TypeA, ClassIN, 60, "8.8.8.8")
 		}
