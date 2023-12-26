@@ -243,11 +243,13 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 				}
 				break
 			} else if b>>6 == 0b11 {
-				pointer := binary.BigEndian.Uint16(data[j:j+2])
+				pointer := binary.BigEndian.Uint16(data[j : j+2])
 				offset := pointer & 0b0011111111111111
 				j = offset - offsetFromHeader
-				nameLength += 2
-				isPointer = true
+				if !isPointer {
+					nameLength += 2
+					isPointer = true
+				}
 			} else {
 				seqLength := uint16(b)
 				length := j + seqLength + 1
