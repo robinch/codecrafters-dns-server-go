@@ -242,8 +242,7 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 				j = offset - offsetFromHeader
 			} else {
 				seqLength := uint16(b)
-				j++
-				length := j + seqLength
+				length := j + seqLength + 1
 				for ; j < length; j++ {
 					name = append(name, b)
 				}
@@ -339,6 +338,7 @@ func ToIpSequence(ip string) []byte {
 func FromSequence(seq []byte) string {
 	bs := []byte{}
 	i := 0
+	fmt.Printf("Label: %v\n", seq)
 	for seq[i] != 0 {
 		segLength := int(seq[i])
 		i++
