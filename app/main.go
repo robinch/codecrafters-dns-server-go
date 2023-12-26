@@ -252,13 +252,14 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 				}
 			} else {
 				seqLength := uint16(b)
-				length := j + seqLength + 1
+				j++
+				length := j + seqLength
 
-				if !isPointer {
-					nameLength += length
-				}
 				for ; j < length; j++ {
 					name = append(name, data[j])
+					if !isPointer {
+						nameLength++
+					}
 				}
 			}
 		}
