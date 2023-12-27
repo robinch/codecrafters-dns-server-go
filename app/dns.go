@@ -34,20 +34,57 @@ type DNS struct {
 	ResourceRecords []*ResourceRecord
 }
 
-func newDNS() *DNS {
+func NewDNS() *DNS {
 	h := &DNSHeader{}
 	qs := []*Question{}
 
 	return &DNS{Header: h, Questions: qs}
 }
 
+
+func NewResponseDns(reqDns *DNS) *DNS{
+	h := &DNSHeader{}
+	qs := []*Question{}
+
+	h.Id = reqDns.Header.Id
+	h.OPCode = reqDns.Header.OPCode
+	h.RD = reqDns.Header.RD
+	if h.OPCode == 0 {
+		h.RCode = 0
+	} else {
+		h.RCode = 4
+	}
+	h.Qr = true
+
+	return &DNS{Header: h, Questions: qs}
+}
+
+func NewQueryDns(reqDns *DNS) *DNS{
+	h := &DNSHeader{}
+	qs := []*Question{}
+
+	h.Id = reqDns.Header.Id
+	h.OPCode = reqDns.Header.OPCode
+	h.RD = reqDns.Header.RD
+	if h.OPCode == 0 {
+		h.RCode = 0
+	} else {
+		h.RCode = 4
+	}
+
+	return &DNS{Header: h, Questions: qs}
+}
+
+
 func ParseDNS(data []byte) *DNS {
 	header := ParseDNSHeader(data[0:12])
-	questions := ParseQuestions(data[12:], header.QDCount)
+	questions, token := ParseQuestions(data[12:], header.QDCount)
+	resourceRecords := ParseResourceRecords(data[token:], header.ANCount)
 
 	return &DNS{
 		Header:    header,
 		Questions: questions,
+		ResourceRecords: resourceRecords,
 	}
 }
 
@@ -61,8 +98,8 @@ func (dr *DNS) AddQuestion(domain string, qType, qClass uint16) {
 	dr.Header.QDCount++
 }
 
-func (dr *DNS) AddResourceRecord(domain string, rType, rClass uint16, ttl uint32, ip string) {
-	rr := newResourceRecord(domain, rType, rClass, ttl, ip)
+func (dr *DNS) AddResourceRecord(domain string, rType, rClass uint16, ttl uint32, data []byte) {
+	rr := newResourceRecord(domain, rType, rClass, ttl, data)
 	dr.ResourceRecords = append(dr.ResourceRecords, rr)
 	dr.Header.ANCount++
 }

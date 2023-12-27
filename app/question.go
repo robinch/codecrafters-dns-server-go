@@ -22,7 +22,7 @@ func (q *Question) Serialize() []byte {
 	return serialized
 }
 
-func ParseQuestions(data []byte, qdCount uint16) []*Question {
+func ParseQuestions(data []byte, qdCount uint16) ([]*Question, uint16) {
 	offsetFromHeader := uint16(12)
 	qs := make([]*Question, qdCount)
 	token := uint16(0)
@@ -45,7 +45,7 @@ func ParseQuestions(data []byte, qdCount uint16) []*Question {
 		qs[i] = q
 	}
 
-	return qs
+	return qs, token + offsetFromHeader
 }
 
 func parseName(data []byte, startToken, headerOffset uint16) (string, uint16) {

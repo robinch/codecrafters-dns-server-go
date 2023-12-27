@@ -16,19 +16,8 @@ func TestForDebugging(t *testing.T) {
 		fmt.Printf("req Name [%d] is: %s\n", i, reqDns.Questions[i].Name)
 	}
 
-	var rCode uint8
-	if reqDns.Header.OPCode == 0 {
-		rCode = 0
-	} else {
-		rCode = 4
-	}
 
-	dns := newDNS()
-	dns.Header.Id = reqDns.Header.Id
-	dns.Header.OPCode = reqDns.Header.OPCode
-	dns.Header.RD = reqDns.Header.RD
-	dns.Header.RCode = rCode
-	dns.AsQuery()
+	dns := NewResponseDns(reqDns)
 
 	for i := 0; i < int(reqDns.Header.QDCount); i++ {
 		domain := reqDns.Questions[i].Name
@@ -37,7 +26,7 @@ func TestForDebugging(t *testing.T) {
 
 	for i := 0; i < int(reqDns.Header.QDCount); i++ {
 		domain := reqDns.Questions[i].Name
-		dns.AddResourceRecord(domain, TypeA, ClassIN, 60, "8.8.8.8")
+		dns.AddResourceRecord(domain, TypeA, ClassIN, 60, []byte{0x08, 0x08, 0x08, 0x08})
 	}
 
 	for i := 0; i < int(dns.Header.QDCount); i++ {

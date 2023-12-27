@@ -1,11 +1,24 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net"
 )
 
+
 func main() {
+	addr := ""
+
+	resolver := flag.String("resolver", "", "resolver address")
+	flag.Parse()
+
+	if *resolver != "" {
+		addr = *resolver
+	}
+
+	fmt.Printf("Resolver addresss %q\n", addr)
+
 	fmt.Println("Logs from your program will appear here!")
 
 	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:2053")
@@ -21,56 +34,84 @@ func main() {
 	}
 	defer udpConn.Close()
 
+
+	resolverAddr, err := net.ResolveUDPAddr("udp", addr)
+	if err != nil {
+		fmt.Println("Failed to resolve UDP address:", err)
+	}
+
+	resolverConn, err := net.DialUDP("udp", nil, resolverAddr)
+	if err != nil {
+		fmt.Println("Failed to dial UDP address:", err)
+	}
+	defer resolverConn.Close()
+
 	buf := make([]byte, 512)
 
 	for {
-		size, source, err := udpConn.ReadFromUDP(buf)
-		if err != nil {
-			fmt.Println("Error receiving data:", err)
-			break
+		reqDns, source := waitForDns(udpConn, buf)
+		respDns := forward(reqDns, resolverConn, resolverAddr)
+		sendDns(respDns, udpConn, source)
+	}
+}
+
+func forward(reqDns *DNS, resolverConn *net.UDPConn, addr *net.UDPAddr) *DNS {
+	respDns := NewResponseDns(reqDns)
+	buf := make([]byte, 512)
+
+	for _, q := range reqDns.Questions {
+		dns := NewQueryDns(reqDns)
+		dns.AddQuestion(q.Name, q.Type, q.Class)
+
+		fmt.Printf("Forwarding packet with id: %d, to %v, contains: %s\n", dns.Header.Id, addr, dns.Serialize())
+		_, err := resolverConn.Write(dns.Serialize())
+    if err != nil {
+			fmt.Printf("Could not write to resolver conn, err: %v", err)
+    }
+		receivedDns, _ := waitForDns(resolverConn, buf)
+
+		for i := 0; i < int(receivedDns.Header.QDCount); i++ {
+			receivedQ := receivedDns.Questions[i]
+			respDns.AddQuestion(receivedQ.Name, receivedQ.Type, receivedQ.Class)
 		}
 
-		// fmt.Printf("recieved\n%s\n", literalFormat(buf[:size]))
-		receivedData := string(buf[:size])
-		fmt.Printf("Received %d bytes from %s: %s\n", size, source, receivedData)
-		// fmt.Printf("Recieved id %d\n", binary.BigEndian.Uint16(buf[:2]))
-
-		reqDns := ParseDNS([]byte(receivedData))
-
-		var rCode uint8
-		if reqDns.Header.OPCode == 0 {
-			rCode = 0
-		} else {
-			rCode = 4
-		}
-
-		dns := newDNS()
-		dns.Header.Id = reqDns.Header.Id
-		dns.Header.OPCode = reqDns.Header.OPCode
-		dns.Header.RD = reqDns.Header.RD
-		dns.Header.RCode = rCode
-		dns.AsQuery()
-
-		for i := 0; i < int(reqDns.Header.QDCount); i++ {
-			domain := reqDns.Questions[i].Name
-			dns.AddQuestion(domain, TypeA, ClassIN)
-		}
-
-		for i := 0; i < int(reqDns.Header.QDCount); i++ {
-			domain := reqDns.Questions[i].Name
-			dns.AddResourceRecord(domain, TypeA, ClassIN, 60, "8.8.8.8")
-		}
-
-		// fmt.Printf("ID in response: %d\n", dns.Header.Id)
-		response := dns.Serialize()
-
-		fmt.Printf("Sending %d bytes from %s: %s\n", len(response), source, string(response))
-
-		_, err = udpConn.WriteToUDP(response, source)
-		if err != nil {
-			fmt.Println("Failed to send response:", err)
+		for i := 0; i < int(receivedDns.Header.ANCount); i++ {
+			receivedRr := receivedDns.ResourceRecords[i]
+			respDns.AddResourceRecord(
+				receivedRr.Name,
+				receivedRr.Type,
+				receivedRr.Class,
+				receivedRr.TTL,
+				receivedRr.Data,
+			)
 		}
 	}
+
+	return respDns
+}
+
+func sendDns(dns *DNS, udpConn *net.UDPConn, udpAddr *net.UDPAddr) {
+	serialized := dns.Serialize()
+	fmt.Printf("Sending to %d bytes to %v: id: %d\n", len(serialized), udpAddr, dns.Header.Id)
+	_, err := udpConn.WriteToUDP(serialized, udpAddr)
+	if err != nil {
+		fmt.Println("Failed to send response:", err)
+	}
+}
+
+func waitForDns(udpConn *net.UDPConn, buf []byte) (*DNS, *net.UDPAddr) {
+	fmt.Println("Waiting for DNS")
+
+	size, source, err := udpConn.ReadFromUDP(buf)
+	if err != nil {
+		fmt.Println("Error receiving data:", err)
+	}
+
+	receivedData := string(buf[:size])
+	receivedDns := ParseDNS([]byte(receivedData))
+	fmt.Printf("Received %d bytes from %v id %d\n", size, source, receivedDns.Header.Id)
+
+	return receivedDns, source
 }
 
 func literalFormat(array []byte) string {
