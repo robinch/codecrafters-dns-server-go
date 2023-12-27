@@ -6,7 +6,6 @@ import (
 	"net"
 )
 
-
 func main() {
 	addr := ""
 
@@ -34,7 +33,6 @@ func main() {
 	}
 	defer udpConn.Close()
 
-
 	resolverAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		fmt.Println("Failed to resolve UDP address:", err)
@@ -49,7 +47,7 @@ func main() {
 	buf := make([]byte, 512)
 
 	for {
-		reqDns, source := waitForDns(udpConn, buf)
+		reqDns, source := receiveDns(udpConn, buf)
 		respDns := forward(reqDns, resolverConn, resolverAddr)
 		sendDns(respDns, udpConn, source)
 	}
@@ -65,10 +63,11 @@ func forward(reqDns *DNS, resolverConn *net.UDPConn, addr *net.UDPAddr) *DNS {
 
 		fmt.Printf("Forwarding packet with id: %d, to %v, contains: %s\n", dns.Header.Id, addr, dns.Serialize())
 		_, err := resolverConn.Write(dns.Serialize())
-    if err != nil {
+		if err != nil {
 			fmt.Printf("Could not write to resolver conn, err: %v", err)
-    }
-		receivedDns, _ := waitForDns(resolverConn, buf)
+		}
+
+		receivedDns, _ := receiveDns(resolverConn, buf)
 
 		for i := 0; i < int(receivedDns.Header.QDCount); i++ {
 			receivedQ := receivedDns.Questions[i]
@@ -99,7 +98,7 @@ func sendDns(dns *DNS, udpConn *net.UDPConn, udpAddr *net.UDPAddr) {
 	}
 }
 
-func waitForDns(udpConn *net.UDPConn, buf []byte) (*DNS, *net.UDPAddr) {
+func receiveDns(udpConn *net.UDPConn, buf []byte) (*DNS, *net.UDPAddr) {
 	fmt.Println("Waiting for DNS")
 
 	size, source, err := udpConn.ReadFromUDP(buf)

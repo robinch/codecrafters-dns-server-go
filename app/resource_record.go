@@ -52,7 +52,6 @@ func ParseResourceRecords(data []byte, anCount uint16) []*ResourceRecord {
 		name, token = parseName(data, token, offsetFromHeader)
 		fmt.Printf("rr name %s\n", name)
 
-
 		types := binary.BigEndian.Uint16(data[token : token+2])
 		token += 2
 		class := binary.BigEndian.Uint16(data[token : token+2])
@@ -62,16 +61,16 @@ func ParseResourceRecords(data []byte, anCount uint16) []*ResourceRecord {
 		length := binary.BigEndian.Uint16(data[token : token+2])
 		fmt.Printf("rr length %d\n", length)
 		token += 2
-		rData := data[token:token+length]
+		rData := data[token : token+length]
 		fmt.Printf("rr data %s\n", data)
 
 		rr := &ResourceRecord{
-			Name:  name,
-			Type:  types,
-			Class: class,
-			TTL: ttl,
+			Name:   name,
+			Type:   types,
+			Class:  class,
+			TTL:    ttl,
 			Length: length,
-			Data: rData,
+			Data:   rData,
 		}
 
 		rrs[i] = rr

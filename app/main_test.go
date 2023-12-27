@@ -16,7 +16,6 @@ func TestForDebugging(t *testing.T) {
 		fmt.Printf("req Name [%d] is: %s\n", i, reqDns.Questions[i].Name)
 	}
 
-
 	dns := NewResponseDns(reqDns)
 
 	for i := 0; i < int(reqDns.Header.QDCount); i++ {
@@ -37,5 +36,5 @@ func TestForDebugging(t *testing.T) {
 		fmt.Printf("dns rr Name [%d] is: %s\n", i, dns.ResourceRecords[i].Name)
 	}
 
-	fmt.Printf("Resp bin:\n%s\n",literalFormat(dns.Serialize()))
+	fmt.Printf("Resp bin:\n%s\n", literalFormat(dns.Serialize()))
 }

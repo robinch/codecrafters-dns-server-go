@@ -41,8 +41,7 @@ func NewDNS() *DNS {
 	return &DNS{Header: h, Questions: qs}
 }
 
-
-func NewResponseDns(reqDns *DNS) *DNS{
+func NewResponseDns(reqDns *DNS) *DNS {
 	h := &DNSHeader{}
 	qs := []*Question{}
 
@@ -59,7 +58,7 @@ func NewResponseDns(reqDns *DNS) *DNS{
 	return &DNS{Header: h, Questions: qs}
 }
 
-func NewQueryDns(reqDns *DNS) *DNS{
+func NewQueryDns(reqDns *DNS) *DNS {
 	h := &DNSHeader{}
 	qs := []*Question{}
 
@@ -75,15 +74,14 @@ func NewQueryDns(reqDns *DNS) *DNS{
 	return &DNS{Header: h, Questions: qs}
 }
 
-
 func ParseDNS(data []byte) *DNS {
 	header := ParseDNSHeader(data[0:12])
 	questions, token := ParseQuestions(data[12:], header.QDCount)
 	resourceRecords := ParseResourceRecords(data[token:], header.ANCount)
 
 	return &DNS{
-		Header:    header,
-		Questions: questions,
+		Header:          header,
+		Questions:       questions,
 		ResourceRecords: resourceRecords,
 	}
 }
