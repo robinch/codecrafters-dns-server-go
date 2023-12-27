@@ -31,7 +31,6 @@ func (rr *ResourceRecord) Serialize() []byte {
 	serialized = binary.BigEndian.AppendUint16(serialized, rr.Class)
 	serialized = binary.BigEndian.AppendUint32(serialized, rr.TTL)
 	serialized = binary.BigEndian.AppendUint16(serialized, rr.Length)
-	serialized = binary.BigEndian.AppendUint16(serialized, rr.Length)
 
 	if rr.Type == TypeA {
 		data := binary.BigEndian.Uint32(rr.Data[:4])

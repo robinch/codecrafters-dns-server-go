@@ -61,10 +61,10 @@ func main() {
 			dns.AddResourceRecord(domain, TypeA, ClassIN, 60, "8.8.8.8")
 		}
 
-		// fmt.Printf("ID: %d\n", dns.Header.Id)
+		// fmt.Printf("ID in response: %d\n", dns.Header.Id)
 		response := dns.Serialize()
 
-		// fmt.Printf("Sending %d bytes from %s: %s\n", len(response), source, string(response))
+		fmt.Printf("Sending %d bytes from %s: %s\n", len(response), source, string(response))
 
 		_, err = udpConn.WriteToUDP(response, source)
 		if err != nil {
